@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Note Editor</title>
+        <meta name="description" content="一个简单的Markdown笔记编辑器">
+        <meta name="keywords" content="笔记, Markdown, 编辑器">
+        <!--localfile-->
+        <style>
+            :root {
+                --vscode-editor-background: var(--vscode-editor-background);
+                --vscode-editor-foreground: var(--vscode-editor-foreground);
+                --tag-bg-color: var(--vscode-badge-background);
+                --tag-fg-color: var(--vscode-badge-foreground);
+                /* 添加行号相关的主题变量 */
+                --line-number-color: var(--vscode-editorLineNumber-foreground);
+                --line-number-active-color: var(--vscode-editorLineNumber-activeForeground);
+                --line-number-gutter-background: var(--vscode-editorGutter-background);
+                --line-number-gutter-active-background: var(--vscode-editorGutter-activeBackground);
+            }
+
+            body {
+                padding: 0;
+                margin: 0;
+                width: 100%;
+                height: 100vh;
+                background-color: var(--vscode-editor-background);
+                color: var(--vscode-editor-foreground);
+                font-family: var(--vscode-editor-font-family);
+                font-size: var(--vscode-editor-font-size);
+                display: flex;
+                flex-direction: column;
+            }
+
+            #tags-container {
+                padding: 10px;
+                display: flex;
+                flex-wrap: wrap;
+                gap: 8px;
+                border-bottom: 1px solid var(--vscode-panel-border);
+                min-height: 24px;
+                align-items: center;
+            }
+
+            .tag {
+                background-color: var(--tag-bg-color);
+                color: var(--tag-fg-color);
+                padding: 2px 8px;
+                border-radius: 12px;
+                font-size: 12px;
+                display: inline-flex;
+                align-items: center;
+            }
+
+            .no-tags-hint {
+                color: var(--vscode-descriptionForeground);
+                font-style: italic;
+                font-size: 12px;
+                opacity: 0.8;
+            }
+
+            #editor-container {
+                flex: 1;
+                overflow: hidden;
+            }
+
+            .CodeMirror {
+                height: 100% !important;
+                width: 100%;
+                background-color: var(--vscode-editor-background) !important;
+                color: var(--vscode-editor-foreground) !important;
+                font-family: var(--vscode-editor-font-family) !important;
+                font-size: var(--vscode-editor-font-size) !important;
+                line-height: 1.5;
+            }
+
+            /* 行号容器样式 */
+            .CodeMirror-gutters {
+                background-color: var(--line-number-gutter-background) !important;
+                border-right: 1px solid var(--vscode-panel-border) !important;
+            }
+
+            /* 行号样式 */
+            .CodeMirror-linenumbers {
+                padding: 0 8px;
+            }
+
+            .CodeMirror-linenumber {
+                color: var(--line-number-color) !important;
+                font-size: var(--vscode-editor-font-size) !important;
+                padding: 0 3px 0 5px !important;
+            }
+
+            /* 添加文本内容与行号之间的间距 */
+            .CodeMirror-lines {
+                padding-left: 8px !important;
+            }
+
+            .CodeMirror-line {
+                padding-left: 4px !important;
+            }
+
+            /* 当前行的行号和背景高亮 */
+            .CodeMirror-activeline-gutter {
+                background-color: var(--line-number-gutter-active-background) !important;
+            }
+
+            .CodeMirror-activeline-gutter .CodeMirror-linenumber {
+                color: var(--line-number-active-color) !important;
+                font-weight: bold;
+            }
+
+            /* 光标样式 */
+            .CodeMirror-cursor {
+                border-left: 2px solid var(--vscode-editorCursor-foreground) !important;
+                border-right: none;
+                width: 0;
+            }
+
+            /* 选中文本的背景色 */
+            .CodeMirror-selected {
+                background: var(--vscode-editor-selectionBackground) !important;
+            }
+
+            /* 光标所在行高亮 */
+            .CodeMirror-activeline-background {
+                background: var(--vscode-editor-lineHighlightBackground) !important;
+            }
+
+            /* Markdown 语法高亮 */
+            .cm-header {
+                color: var(--vscode-symbolIcon-classForeground) !important;
+            }
+
+            .cm-strong {
+                color: var(--vscode-symbolIcon-constantForeground) !important;
+            }
+
+            .cm-em {
+                color: var(--vscode-symbolIcon-propertyForeground) !important;
+            }
+
+            .cm-link {
+                color: var(--vscode-textLink-foreground) !important;
+            }
+
+            .cm-url {
+                color: var(--vscode-textLink-activeForeground) !important;
+            }
+
+            .cm-quote {
+                color: var(--vscode-textPreformat-foreground) !important;
+            }
+
+            .cm-variable-2 {
+                color: var(--vscode-symbolIcon-variableForeground) !important;
+            }
+
+            .cm-variable-3 {
+                color: var(--vscode-symbolIcon-functionForeground) !important;
+            }
+
+            .cm-keyword {
+                color: var(--vscode-symbolIcon-keywordForeground) !important;
+            }
+
+            .cm-comment {
+                color: var(--vscode-editorLineNumber-foreground) !important;
+            }
+        </style>
+    </head>
+
+    <body>
+        <div id="tags-container"></div>
+        <div id="editor-container"></div>
+
+        <script>
+            const vscode = acquireVsCodeApi();
+            let editor;
+            let noteTitle = "";
+            let lastContent = '';
+            let saveTimeout = null;
+
+            // 初始化编辑器
+            function initEditor() {
+                editor = CodeMirror(document.getElementById('editor-container'), {
+                    mode: 'markdown',
+                    theme: 'vscode-dark',
+                    lineWrapping: true,
+                    lineNumbers: true,         // 启用行号显示
+                    scrollbarStyle: null,
+                    viewportMargin: Infinity,
+                    styleActiveLine: true,     // 启用当前行高亮
+                    styleActiveLineGutter: true, // 启用当前行行号高亮
+                    cursorHeight: 1,           // 设置光标高度为行高
+                    cursorBlinkRate: 530,      // 设置光标闪烁速度，与VS Code保持一致
+                    extraKeys: {
+                        'Tab': function (cm) {
+                            cm.replaceSelection('    ');
+                        }
+                    }
+                });
+
+                // 监听编辑器变化
+                editor.on('change', () => {
+                    const content = editor.getValue();
+                    if (content !== lastContent) {
+                        if (saveTimeout) {
+                            clearTimeout(saveTimeout);
+                        }
+                        saveTimeout = setTimeout(() => {
+                            lastContent = content;
+                            vscode.postMessage({
+                                type: 'save',
+                                noteTitle: noteTitle,
+                                content: content
+                            });
+                        }, 500);
+                    }
+                });
+            }
+
+            // 更新标签显示
+            function updateTags(tags) {
+                const container = document.getElementById('tags-container');
+                container.innerHTML = '';
+
+                if (!tags || tags.length === 0) {
+                    const noTagsHint = document.createElement('div');
+                    noTagsHint.className = 'no-tags-hint';
+                    noTagsHint.textContent = '暂无标签';
+                    container.appendChild(noTagsHint);
+                    return;
+                }
+
+                tags.forEach(tag => {
+                    const tagElement = document.createElement('span');
+                    tagElement.className = 'tag';
+                    tagElement.textContent = tag;
+                    container.appendChild(tagElement);
+                });
+            }
+
+            // 接收来自扩展的消息
+            window.addEventListener('message', event => {
+                const message = event.data;
+                switch (message.type) {
+                    case 'update':
+                        if (!editor) {
+                            initEditor();
+                        }
+                        // 只有在不保持内容的情况下才更新编辑器内容
+                        if (!message.keepContent && message.content !== undefined) {
+                            editor.setValue(message.content);
+                            lastContent = message.content;
+                        }
+                        if (message.noteTitle) {
+                            noteTitle = message.noteTitle;
+                        }
+                        // 如果有标签信息，则更新标签
+                        if (message.tags) {
+                            updateTags(message.tags);
+                        }
+                        break;
+                }
+            });
+        </script>
+    </body>
+
+</html>
