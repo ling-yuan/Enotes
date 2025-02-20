@@ -3,6 +3,11 @@
 const vscode = require('vscode');
 const { WebviewPanelManager } = require('./webview');
 
+const ALLNOTES = "全部笔记";
+const SEARCHRESULT = "搜索结果";
+const EMPTYNOTES = "暂无笔记";
+const EMPTYSEARCH = "未找到笔记";
+
 /**
  * 用于获取插件配置
  * @returns {Promise<any>} 插件配置
@@ -200,17 +205,39 @@ class TagManager {
 class NoteItem extends vscode.TreeItem {
     constructor(title, tags = [], collapsibleState) {
         super(title, collapsibleState);
-        this.tooltip = title;
+        this.promptTitle = [ALLNOTES, SEARCHRESULT, EMPTYNOTES, EMPTYSEARCH, ""];
         this.tags = tags;
         this.title = title;
-        // 在标题后显示标签
-        this.label = `${title}  ${this.formatTags()}`;
-        this.iconPath = new vscode.ThemeIcon('note');
-        this.command = {
-            command: 'enotes.openNote',
-            title: 'Open Note',
-            arguments: [this]
-        };
+
+        // 只有非提示项才设置悬停提示和标签
+        if (!this.promptTitle.includes(title)) {
+            this.tooltip = title;
+            // 在标题后显示标签
+            this.label = `${title}  ${this.formatTags()}`;
+            this.iconPath = new vscode.ThemeIcon('note');
+            this.command = {
+                command: 'enotes.openNote',
+                title: 'Open Note',
+                arguments: [this]
+            };
+        } else {
+            // 提示项只设置标签，不设置悬停提示
+            this.label = title;
+            this.tooltip = undefined; // 明确设置为 undefined 以移除悬停提示
+        }
+    }
+
+    /**
+     * 创建空选项
+     * @returns {NoteItem} 空选项实例
+     */
+    static createEmptyItem(prompt) {
+        prompt = prompt || "";
+        const emptyItem = new NoteItem(prompt, [], vscode.TreeItemCollapsibleState.None);
+        emptyItem.description = ''; // 清除描述
+        emptyItem.contextValue = 'empty'; // 添加上下文值，用于在 package.json 中控制命令显示
+        emptyItem.tooltip = undefined; // 确保移除悬停提示
+        return emptyItem;
     }
 
     formatTags() {
@@ -222,6 +249,7 @@ class NoteItem extends vscode.TreeItem {
      * @returns {Promise<string>} 笔记内容
      */
     async content() {
+        if (this.promptTitle.includes(this.title)) return ''; // 空选项直接返回空字符串
         const noteFileUri = await getNoteUri(this.title);
         const noteContent = await vscode.workspace.fs.readFile(noteFileUri);
         return new TextDecoder().decode(noteContent);
@@ -238,6 +266,8 @@ class NotesProvider {
         this.panelController = new PanelController(context);
         this.tagManager = new TagManager();
         this.notes = [];
+        this.searchResults = null; // 添加搜索结果存储
+        this.searchMode = false; // 添加搜索模式标志
         // 初始化时先加载标签，再加载笔记
         this.initialize();
     }
@@ -260,18 +290,25 @@ class NotesProvider {
      * @returns {Promise<void>}
      */
     async loadExistingNotes() {
-        // 先关闭所有已打开的笔记面板
         try {
+            // 检查所有已打开的面板
             const openedNotes = Array.from(this.panelController.webviewManager.panels.keys());
             for (const noteTitle of openedNotes) {
-                await this.panelController.closePanel({ title: noteTitle });
+                const notePath = this.panelController.webviewManager.notePaths.get(noteTitle);
+                // 检查文件是否存在
+                try {
+                    await vscode.workspace.fs.stat(vscode.Uri.file(notePath));
+                } catch (error) {
+                    // 如果文件不存在，关闭对应的面板
+                    await this.panelController.closePanel({ title: noteTitle });
+                    vscode.window.showWarningMessage(`笔记 "${noteTitle}" 已被删除，已关闭对应面板`);
+                }
             }
-        } catch (error) {
-            vscode.window.showWarningMessage(`关闭笔记面板时出错: ${error.message}`);
-        }
 
-        this.notes = [];
-        try {
+            this.notes = [];
+            this.searchResults = null;
+            this.searchMode = false;
+
             const notesPath = await getNotesPath();
             const files = await vscode.workspace.fs.readDirectory(vscode.Uri.file(notesPath));
 
@@ -310,7 +347,24 @@ class NotesProvider {
      * @returns {NoteItem[]} 笔记列表子项
      */
     getChildren() {
-        return this.notes;
+        // 如果处于搜索模式，返回搜索结果加上空选项
+        if (this.searchMode) {
+            // 创建一个空选项
+            const promptItem1 = NoteItem.createEmptyItem(SEARCHRESULT);
+            if (this.searchResults == 0) {
+                const promptItem2 = NoteItem.createEmptyItem(EMPTYSEARCH);
+                return [promptItem1, promptItem2];
+            }
+            return [promptItem1, ...this.searchResults];
+        }
+
+        // 否则返回所有笔记加上空选项
+        const promptItem1 = NoteItem.createEmptyItem(ALLNOTES);
+        if (this.notes.length == 0) {
+            const promptItem2 = NoteItem.createEmptyItem(EMPTYNOTES);
+            return [promptItem1, promptItem2];
+        }
+        return [promptItem1, ...this.notes];
     }
 
     /**
@@ -412,7 +466,7 @@ class NotesProvider {
             this.tagManager.renameTag(note.title, newTitle);
             // 更新笔记
             note.title = newTitle;
-            note.label = `${note.title} ${note.formatTags()}`;
+            note.label = `${note.title}  ${note.formatTags()}`;
             // 更新面板标题和标签，同时传递新文件路径
             await this.panelController.updateNoteTitle(oldTitle, newTitle, note.tags, newUri.fsPath);
             this.refresh();
@@ -441,7 +495,7 @@ class NotesProvider {
 
             // 更新笔记的标签
             note.tags = [...new Set(newTags)]; // 去重
-            note.label = `${note.title} ${note.formatTags()}`;
+            note.label = `${note.title}  ${note.formatTags()}`;
 
             // 更新标签管理器中的标签
             this.tagManager.changeTag(note.title, note.tags);
@@ -450,6 +504,76 @@ class NotesProvider {
             await this.panelController.updateNoteTags(note.title, note.tags);
 
             this.refresh();
+        }
+    }
+
+    /**
+     * 清除搜索结果
+     */
+    async clearSearch() {
+        this.searchMode = false;
+        this.searchResults = null;
+        this.refresh();
+        vscode.window.showInformationMessage('已显示所有笔记');
+    }
+
+    /**
+     * 搜索笔记
+     * @param {string} searchType 搜索类型
+     * @param {string} searchText 搜索文本
+     * @returns {Promise<NoteItem[]>} 搜索结果
+     */
+    async searchNotes(searchType, searchText) {
+        const results = [];
+        const searchTextLower = searchText.toLowerCase();
+
+        switch (searchType) {
+            case 'title':
+                // 按标题搜索
+                results.push(...this.notes.filter(note =>
+                    note.title.toLowerCase().includes(searchTextLower)
+                ));
+                break;
+
+            case 'tag':
+                // 按标签搜索
+                results.push(...this.notes.filter(note =>
+                    note.tags.some(tag => tag.toLowerCase().includes(searchTextLower))
+                ));
+                break;
+
+            case 'all':
+                // 聚合搜索（标题和标签）
+                results.push(...this.notes.filter(note =>
+                    note.title.toLowerCase().includes(searchTextLower) ||
+                    note.tags.some(tag => tag.toLowerCase().includes(searchTextLower))
+                ));
+                break;
+        }
+
+        // 更新搜索结果
+        this.searchResults = results;
+        this.searchMode = true;
+        this.refresh();
+
+        // 显示搜索结果数量
+        if (results.length > 0) {
+            vscode.window.showInformationMessage(`找到 ${results.length} 个匹配的笔记`);
+        } else {
+            vscode.window.showInformationMessage('未找到匹配的笔记');
+            await this.clearSearch();
+        }
+
+        return results;
+    }
+
+    /**
+     * 显示搜索结果
+     * @param {NoteItem[]} results 搜索结果
+     */
+    async showSearchResults(results) {
+        if (results.length === 1) {
+            await this.panelController.showPanel(results[0]);
         }
     }
 }
@@ -501,6 +625,42 @@ function activate(context) {
         notesProvider.editTags(note);
     });
 
+    // 注册搜索笔记命令
+    let searchNotesCommand = vscode.commands.registerCommand('enotes.searchNotes', async () => {
+        const searchType = await vscode.window.showQuickPick(
+            [
+                { label: '按笔记名搜索', value: 'title' },
+                { label: '按标签搜索', value: 'tag' },
+                { label: '聚合搜索', value: 'all' },
+                { label: '显示所有笔记', value: 'clear' }
+            ],
+            {
+                placeHolder: '选择搜索方式'
+            }
+        );
+
+        if (!searchType) {
+            return;
+        }
+
+        if (searchType.value === 'clear') {
+            notesProvider.clearSearch();
+            return;
+        }
+
+        const searchText = await vscode.window.showInputBox({
+            placeHolder: '输入搜索关键词',
+            prompt: searchType.label
+        });
+
+        if (!searchText) {
+            return;
+        }
+
+        const results = await notesProvider.searchNotes(searchType.value, searchText);
+        await notesProvider.showSearchResults(results);
+    });
+
     // 初始化时触发一次刷新
     vscode.commands.executeCommand('enotes.refreshNotes');
 
@@ -511,6 +671,7 @@ function activate(context) {
     context.subscriptions.push(openNoteCommand);
     context.subscriptions.push(renameNoteCommand);
     context.subscriptions.push(editTagsCommand);
+    context.subscriptions.push(searchNotesCommand);
 }
 
 
