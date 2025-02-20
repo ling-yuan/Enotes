@@ -61,6 +61,11 @@
         "command": "enotes.editTags",
         "title": "修改标签",
         "icon": "$(tag)"
+      },
+      {
+        "command": "enotes.togglePreview",
+        "title": "切换预览/编辑模式",
+        "icon": "$(preview)"
       }
     ],
     "menus": {
@@ -97,6 +102,13 @@
           "when": "view == enotesView && viewItem != empty",
           "group": "inline@3"
         }
+      ],
+      "editor/title": [
+        {
+          "command": "enotes.togglePreview",
+          "when": "activeWebviewPanelId == enotesEditor",
+          "group": "navigation"
+        }
       ]
     },
     "configuration": {
@@ -111,6 +123,11 @@
           "type": "boolean",
           "default": true,
           "description": "是否在创建笔记时直接打开"
+        },
+        "enotes.defaultEditMode": {
+          "type": "boolean",
+          "default": true,
+          "description": "是否在打开笔记时默认启用编辑模式（否则为预览模式）"
         }
       }
     },
@@ -128,13 +145,13 @@
     "test": "vscode-test"
   },
   "devDependencies": {
-    "@types/vscode": "^1.97.0",
     "@types/mocha": "^10.0.6",
     "@types/node": "18.x",
-    "eslint": "^8.57.0",
-    "typescript": "^5.4.5",
+    "@types/vscode": "^1.97.0",
     "@vscode/test-cli": "^0.0.9",
-    "@vscode/test-electron": "^2.4.0"
+    "@vscode/test-electron": "^2.4.0",
+    "eslint": "^8.57.0",
+    "typescript": "^5.4.5"
   },
   "license": "SEE LICENSE IN LICENSE.txt",
   "repository": {
@@ -144,5 +161,8 @@
   "bugs": {
     "url": "https://github.com/ling-yuan/Enotes/issues"
   },
-  "homepage": "https://github.com/ling-yuan/Enotes/blob/main/README.md"
+  "homepage": "https://github.com/ling-yuan/Enotes/blob/main/README.md",
+  "dependencies": {
+    "marked": "^15.0.7"
+  }
 }

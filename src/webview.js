@@ -1,5 +1,6 @@
 const vscode = require('vscode');
 const fs = require('fs');
+const marked = require('marked');
 
 
 /**
@@ -65,6 +66,17 @@ class WebviewPanelManager {
         this.panels = new Map();
         this.notePaths = new Map(); // 添加一个Map来存储笔记标题和文件路径的映射
         this.contentProvider = new WebviewContentProvider(context);
+
+        // 注册预览切换命令
+        context.subscriptions.push(
+            vscode.commands.registerCommand('enotes.togglePreview', () => {
+                const activePanel = Array.from(this.panels.values())
+                    .find(panel => panel.active);
+                if (activePanel) {
+                    activePanel.webview.postMessage({ type: 'togglePreview' });
+                }
+            })
+        );
     }
 
     /**
@@ -87,6 +99,9 @@ class WebviewPanelManager {
             panel.webview.postMessage({ type: 'update', tags });
             return;
         }
+
+        // 获取默认模式设置
+        const defaultEditMode = vscode.workspace.getConfiguration('enotes').get('defaultEditMode');
 
         // 创建新面板
         const panel = vscode.window.createWebviewPanel(
@@ -116,7 +131,8 @@ class WebviewPanelManager {
                 type: 'update',
                 noteTitle,
                 content,
-                tags
+                tags,
+                defaultEditMode // 传递默认模式设置
             });
         } catch (error) {
             vscode.window.showErrorMessage(`读取笔记失败: ${error.message}`);
@@ -137,6 +153,18 @@ class WebviewPanelManager {
                             }
                         } catch (error) {
                             vscode.window.showErrorMessage(`保存笔记失败: ${error.message}`);
+                        }
+                        break;
+                    case 'getPreview':
+                        try {
+                            // 使用 marked 将 Markdown 转换为 HTML
+                            const html = marked.parse(message.content);
+                            panel.webview.postMessage({
+                                type: 'preview',
+                                html: html
+                            });
+                        } catch (error) {
+                            vscode.window.showErrorMessage(`生成预览失败: ${error.message}`);
                         }
                         break;
                 }

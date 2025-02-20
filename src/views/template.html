@@ -169,12 +169,65 @@
             .cm-comment {
                 color: var(--vscode-editorLineNumber-foreground) !important;
             }
+
+            #preview-container {
+                display: none;
+                padding: 20px;
+                height: 100%;
+                overflow: auto;
+            }
+
+            /* 添加切换按钮样式 */
+            #toggle-button {
+                position: fixed;
+                top: 10px;
+                right: 10px;
+                padding: 6px 10px;
+                background-color: var(--vscode-button-background);
+                color: var(--vscode-button-foreground);
+                border: none;
+                border-radius: 3px;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                gap: 5px;
+                z-index: 1000;
+            }
+
+            #toggle-button:hover {
+                background-color: var(--vscode-button-hoverBackground);
+            }
+
+            #toggle-button:active {
+                background-color: var(--vscode-button-pressedBackground);
+            }
+
+            /* 添加图标样式 */
+            .icon {
+                width: 16px;
+                height: 16px;
+                display: inline-block;
+                margin-right: 4px;
+            }
+
+            .preview-icon::before {
+                content: "👁";
+            }
+
+            .edit-icon::before {
+                content: "✏️";
+            }
         </style>
     </head>
 
     <body>
         <div id="tags-container"></div>
+        <button id="toggle-button">
+            <span class="preview-icon"></span>
+            <span>预览模式</span>
+        </button>
         <div id="editor-container"></div>
+        <div id="preview-container" class="markdown-body"></div>
 
         <script>
             const vscode = acquireVsCodeApi();
@@ -182,6 +235,7 @@
             let noteTitle = "";
             let lastContent = '';
             let saveTimeout = null;
+            let isPreviewMode = false;
 
             // 初始化编辑器
             function initEditor() {
@@ -220,6 +274,44 @@
                         }, 500);
                     }
                 });
+            }
+
+            // 切换预览/编辑模式
+            function togglePreview() {
+                isPreviewMode = !isPreviewMode;
+                const editorContainer = document.getElementById('editor-container');
+                const previewContainer = document.getElementById('preview-container');
+                const toggleButton = document.getElementById('toggle-button');
+                const iconSpan = toggleButton.querySelector('span:first-child');
+                const textSpan = toggleButton.querySelector('span:last-child');
+
+                if (isPreviewMode) {
+                    // 切换到预览模式
+                    editorContainer.style.display = 'none';
+                    previewContainer.style.display = 'block';
+                    iconSpan.className = 'edit-icon';
+                    textSpan.textContent = '编辑模式';
+                    // 获取当前内容并转换为HTML
+                    const content = editor.getValue();
+                    vscode.postMessage({
+                        type: 'getPreview',
+                        content: content
+                    });
+                } else {
+                    // 切换回编辑模式
+                    editorContainer.style.display = 'block';
+                    previewContainer.style.display = 'none';
+                    iconSpan.className = 'preview-icon';
+                    textSpan.textContent = '预览模式';
+                    // 刷新编辑器以确保正确显示
+                    editor.refresh();
+                }
+            }
+
+            // 更新预览内容
+            function updatePreview(html) {
+                const previewContainer = document.getElementById('preview-container');
+                previewContainer.innerHTML = html;
             }
 
             // 更新标签显示
@@ -264,8 +356,17 @@
                             updateTags(message.tags);
                         }
                         break;
+                    case 'preview':
+                        updatePreview(message.html);
+                        break;
+                    case 'togglePreview':
+                        togglePreview();
+                        break;
                 }
             });
+
+            // 添加按钮点击事件监听
+            document.getElementById('toggle-button').addEventListener('click', togglePreview);
         </script>
     </body>
 
