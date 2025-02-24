@@ -222,10 +222,6 @@
 
     <body>
         <div id="tags-container"></div>
-        <button id="toggle-button">
-            <span class="preview-icon"></span>
-            <span>预览模式</span>
-        </button>
         <div id="editor-container"></div>
         <div id="preview-container" class="markdown-body"></div>
 
@@ -281,16 +277,11 @@
                 isPreviewMode = !isPreviewMode;
                 const editorContainer = document.getElementById('editor-container');
                 const previewContainer = document.getElementById('preview-container');
-                const toggleButton = document.getElementById('toggle-button');
-                const iconSpan = toggleButton.querySelector('span:first-child');
-                const textSpan = toggleButton.querySelector('span:last-child');
 
                 if (isPreviewMode) {
                     // 切换到预览模式
                     editorContainer.style.display = 'none';
                     previewContainer.style.display = 'block';
-                    iconSpan.className = 'edit-icon';
-                    textSpan.textContent = '编辑模式';
                     // 获取当前内容并转换为HTML
                     const content = editor.getValue();
                     vscode.postMessage({
@@ -301,8 +292,6 @@
                     // 切换回编辑模式
                     editorContainer.style.display = 'block';
                     previewContainer.style.display = 'none';
-                    iconSpan.className = 'preview-icon';
-                    textSpan.textContent = '预览模式';
                     // 刷新编辑器以确保正确显示
                     editor.refresh();
                 }
@@ -364,9 +353,6 @@
                         break;
                 }
             });
-
-            // 添加按钮点击事件监听
-            document.getElementById('toggle-button').addEventListener('click', togglePreview);
         </script>
     </body>
 

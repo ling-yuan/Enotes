@@ -163,6 +163,7 @@
   },
   "homepage": "https://github.com/ling-yuan/Enotes/blob/main/README.md",
   "dependencies": {
+    "katex": "^0.16.21",
     "marked": "^15.0.7"
   }
 }

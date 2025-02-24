@@ -4,6 +4,7 @@
     font-size: var(--vscode-editor-font-size);
     line-height: 1.6;
     word-wrap: break-word;
+    overflow-x: auto;
 }
 
 .markdown-body h1,
@@ -101,4 +102,37 @@
 .markdown-body img {
     max-width: 100%;
     height: auto;
+}
+
+/* KaTeX 公式样式 */
+.katex {
+    font-size: 1.1em;
+}
+
+.katex-display {
+    margin: 1em 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 1em 0;
+}
+
+.katex-display>.katex {
+    display: flex;
+    justify-content: center;
+    text-align: center;
+}
+
+/* 适配深色主题 */
+.markdown-body .katex {
+    color: var(--vscode-editor-foreground);
+}
+
+.markdown-body .katex .katex-html {
+    background-color: transparent;
+}
+
+/* 公式块样式 */
+.markdown-body .katex-display {
+    background-color: var(--vscode-textBlockQuote-background);
+    border-radius: 3px;
 }

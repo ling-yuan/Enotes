@@ -1,7 +1,49 @@
 const vscode = require('vscode');
 const fs = require('fs');
 const marked = require('marked');
+const katex = require('katex');
 
+const renderer = {
+    text(token) {
+        const text = token.text || "";
+        if (text.match(/\$([^\$]+)\$/g)) {
+            return text.replace(/\$([^\$]+)\$/g, (_, formula) => {
+                try {
+                    return katex.renderToString(formula, { displayMode: false, output: 'mathml' });
+                } catch (error) {
+                    console.error('行内公式渲染错误:', error);
+                    return `$${formula}$`;
+                }
+            });
+        }
+        return false; // 回退默认处理
+    },
+    // eslint-disable-next-line no-unused-vars
+    paragraph({ tokens, text, raw }) {
+        if (text.match(/\$\$([\s\S]+?)\$\$/g)) {
+            return text.replace(/\$\$([\s\S]+?)\$\$/g, (_, formula) => {
+                try {
+                    return katex.renderToString(formula, { displayMode: true, output: 'mathml' });
+                } catch (error) {
+                    console.error('块级公式渲染错误:', error);
+                    return `$$${formula}$$`;
+                }
+            });
+        }
+        return false; // 回退默认处理
+    }
+};
+
+marked.setOptions({
+    gfm: true,           // 启用 GitHub 风格的 Markdown
+    breaks: true,        // 启用换行符
+    headerIds: true,     // 为标题添加 id
+    mangle: false,       // 不转义标题中的特殊字符
+    smartLists: true,    // 使用更智能的列表行为
+    smartypants: true,   // 使用更智能的标点符号
+    xhtml: true,         // 使用 xhtml 规范的标签
+    emoji: true,         // 启用 emoji 支持
+}).use({ renderer });
 
 /**
  * Webview 内容管理器
@@ -24,14 +66,16 @@ class WebviewContentProvider {
         const resources = {
             styles: [
                 'src/lib/codemirror.min.css',
-                'src/views/markdown.css'
+                'src/views/markdown.css',
+                'node_modules/katex/dist/katex.min.css' // 添加 KaTeX CSS
             ],
             scripts: [
                 'src/lib/codemirror.min.js',
                 'src/lib/markdown.min.js',
                 'src/lib/xml.min.js',
                 'src/lib/javascript.min.js',
-                'src/lib/css.min.js'
+                'src/lib/css.min.js',
+                'node_modules/katex/dist/katex.min.js' // 添加 KaTeX JS
             ]
         };
 
