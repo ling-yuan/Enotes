@@ -130,14 +130,7 @@
           "description": "是否在打开笔记时默认启用编辑模式（否则为预览模式）"
         }
       }
-    },
-    "iconThemes": [
-      {
-        "id": "enotes-icons",
-        "label": "ENotes Icons",
-        "path": "./icons/enotes-icon-theme.json"
-      }
-    ]
+    }
   },
   "scripts": {
     "lint": "eslint .",
