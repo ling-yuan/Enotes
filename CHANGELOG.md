@@ -2,11 +2,12 @@
 
 ## [Unreleased]
 
-- v0.4.1 允许笔记界面修改标签
+- None
 
 ## [completed but not published]
 
 - 设置编辑面板图标
+- 允许笔记界面修改标签
 
 ## [0.4.0] - 2025-02-24
 

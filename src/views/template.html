@@ -42,6 +42,7 @@
                 border-bottom: 1px solid var(--vscode-panel-border);
                 min-height: 24px;
                 align-items: center;
+                position: relative;
             }
 
             .tag {
@@ -52,6 +53,12 @@
                 font-size: 12px;
                 display: inline-flex;
                 align-items: center;
+                cursor: pointer;
+                transition: background-color 0.2s ease;
+            }
+
+            .tag:hover {
+                background-color: var(--vscode-button-hoverBackground);
             }
 
             .no-tags-hint {
@@ -59,6 +66,11 @@
                 font-style: italic;
                 font-size: 12px;
                 opacity: 0.8;
+                cursor: pointer;
+            }
+
+            .no-tags-hint:hover {
+                text-decoration: underline;
             }
 
             #editor-container {
@@ -217,6 +229,33 @@
             .edit-icon::before {
                 content: "✏️";
             }
+
+            /* 添加标签编辑按钮样式 */
+            .edit-tags-button {
+                position: absolute;
+                right: 10px;
+                top: 50%;
+                transform: translateY(-50%);
+                background-color: transparent;
+                border: none;
+                color: var(--vscode-foreground);
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                padding: 4px 8px;
+                border-radius: 3px;
+                font-size: 12px;
+            }
+
+            .edit-tags-button:hover {
+                background-color: var(--vscode-button-hoverBackground);
+            }
+
+            .edit-tags-button::before {
+                content: "✏️";
+                margin-right: 4px;
+                font-size: 14px;
+            }
         </style>
     </head>
 
@@ -308,10 +347,29 @@
                 const container = document.getElementById('tags-container');
                 container.innerHTML = '';
 
+                // 添加编辑标签按钮
+                const editButton = document.createElement('button');
+                editButton.className = 'edit-tags-button';
+                editButton.textContent = '编辑标签';
+                editButton.addEventListener('click', () => {
+                    vscode.postMessage({
+                        type: 'editTags',
+                        noteTitle: noteTitle
+                    });
+                });
+                container.appendChild(editButton);
+
                 if (!tags || tags.length === 0) {
                     const noTagsHint = document.createElement('div');
                     noTagsHint.className = 'no-tags-hint';
                     noTagsHint.textContent = '暂无标签';
+                    // 为"暂无标签"提示添加点击事件
+                    noTagsHint.addEventListener('click', () => {
+                        vscode.postMessage({
+                            type: 'editTags',
+                            noteTitle: noteTitle
+                        });
+                    });
                     container.appendChild(noTagsHint);
                     return;
                 }
@@ -320,6 +378,13 @@
                     const tagElement = document.createElement('span');
                     tagElement.className = 'tag';
                     tagElement.textContent = tag;
+                    // 为每个标签添加点击事件
+                    tagElement.addEventListener('click', () => {
+                        vscode.postMessage({
+                            type: 'editTags',
+                            noteTitle: noteTitle
+                        });
+                    });
                     container.appendChild(tagElement);
                 });
             }

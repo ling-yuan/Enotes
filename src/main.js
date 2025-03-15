@@ -498,11 +498,12 @@ class NotesProvider {
             note.label = `${note.title}  ${note.formatTags()}`;
 
             // 更新标签管理器中的标签
-            this.tagManager.changeTag(note.title, note.tags);
+            await this.tagManager.changeTag(note.title, note.tags);
 
             // 更新面板标签
             await this.panelController.updateNoteTags(note.title, note.tags);
 
+            // 刷新左侧面板视图
             this.refresh();
         }
     }
@@ -576,6 +577,19 @@ class NotesProvider {
             await this.panelController.showPanel(results[0]);
         }
     }
+
+    /**
+     * 根据标题获取笔记对象
+     * @param {string} title 笔记标题
+     * @returns {NoteItem} 笔记对象
+     */
+    getNoteByTitle(title) {
+        const note = this.notes.find(n => n.title === title);
+        if (note) {
+            return note;
+        }
+        throw new Error(`笔记 "${title}" 不存在`);
+    }
 }
 
 
@@ -625,6 +639,11 @@ function activate(context) {
         notesProvider.editTags(note);
     });
 
+    // 注册根据标题获取笔记对象的命令
+    let getNoteByTitleCommand = vscode.commands.registerCommand('enotes.getNoteByTitle', (title) => {
+        return notesProvider.getNoteByTitle(title);
+    });
+
     // 注册搜索笔记命令
     let searchNotesCommand = vscode.commands.registerCommand('enotes.searchNotes', async () => {
         const searchType = await vscode.window.showQuickPick(
@@ -671,6 +690,7 @@ function activate(context) {
     context.subscriptions.push(openNoteCommand);
     context.subscriptions.push(renameNoteCommand);
     context.subscriptions.push(editTagsCommand);
+    context.subscriptions.push(getNoteByTitleCommand);
     context.subscriptions.push(searchNotesCommand);
 }
 

@@ -214,6 +214,27 @@ class WebviewPanelManager {
                             vscode.window.showErrorMessage(`生成预览失败: ${error.message}`);
                         }
                         break;
+                    case 'editTags':
+                        // 触发修改标签命令
+                        if (message.noteTitle) {
+                            // 在笔记列表中查找对应的笔记项
+                            vscode.commands.executeCommand('enotes.getNoteByTitle', message.noteTitle)
+                                .then(note => {
+                                    if (note) {
+                                        vscode.commands.executeCommand('enotes.editTags', note);
+                                    } else {
+                                        // 如果找不到笔记，创建一个临时的笔记对象
+                                        vscode.commands.executeCommand('enotes.editTags', {
+                                            title: message.noteTitle,
+                                            tags: []
+                                        });
+                                    }
+                                })
+                                .catch(error => {
+                                    vscode.window.showErrorMessage(`获取笔记失败: ${error.message}`);
+                                });
+                        }
+                        break;
                 }
             },
             undefined,
@@ -285,6 +306,10 @@ class WebviewPanelManager {
     async updateNoteTags(noteTitle, tags = []) {
         const panel = this.panels.get(noteTitle);
         if (panel) {
+            // 确保面板处于活动状态
+            panel.reveal();
+
+            // 发送更新消息到webview
             panel.webview.postMessage({
                 type: 'update',
                 tags: tags,
