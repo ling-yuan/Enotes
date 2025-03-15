@@ -161,6 +161,9 @@ class WebviewPanelManager {
             }
         );
 
+        // 获取图标的绝对路径 并 设置图标
+        panel.iconPath = vscode.Uri.joinPath(this.context.extensionUri, 'resources', 'icon_notepanel.svg');
+
         // 设置HTML内容
         panel.webview.html = this.contentProvider.getHtmlContent(panel.webview);
 
