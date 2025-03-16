@@ -6,6 +6,10 @@
 
 ## [completed but not published]
 
+- None
+
+## [0.4.1] - 2025-03-16
+
 - 设置编辑面板图标
 - 允许笔记界面修改标签
 
