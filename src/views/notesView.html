@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html>
+
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <style>
+            html,
+            body {
+                height: 100%;
+                padding: 0;
+                margin: 0;
+                overflow: hidden;
+            }
+
+            body {
+                display: flex;
+                flex-direction: column;
+                font-family: var(--vscode-font-family);
+                color: var(--vscode-foreground);
+            }
+
+            .filter-container {
+                padding: 8px;
+                border-bottom: 1px solid var(--vscode-panel-border);
+                background: var(--vscode-sideBar-background);
+                flex-shrink: 0;
+            }
+
+            .filter-input-wrapper {
+                position: relative;
+                display: flex;
+                align-items: center;
+            }
+
+            #filterInput {
+                width: 100%;
+                padding: 4px 24px 4px 8px;
+                background: var(--vscode-input-background);
+                color: var(--vscode-input-foreground);
+                border: 1px solid var(--vscode-input-border);
+                outline: none;
+                font-size: 13px;
+            }
+
+            #filterInput:focus {
+                border-color: var(--vscode-focusBorder);
+            }
+
+            .clear-btn {
+                position: absolute;
+                right: 4px;
+                background: none;
+                border: none;
+                color: var(--vscode-foreground);
+                cursor: pointer;
+                padding: 2px 4px;
+                display: none;
+                font-size: 16px;
+                opacity: 0.6;
+            }
+
+            .clear-btn:hover {
+                opacity: 1;
+            }
+
+            .notes-list {
+                padding: 4px 0;
+                flex: 1;
+                overflow-y: auto;
+                min-height: 0;
+            }
+
+            .note-item {
+                padding: 6px 12px;
+                cursor: pointer;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                border-bottom: 1px solid transparent;
+            }
+
+            .note-item:hover {
+                background: var(--vscode-list-hoverBackground);
+            }
+
+            .note-item.selected {
+                background: var(--vscode-list-activeSelectionBackground);
+            }
+
+            .note-title {
+                flex: 1;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+
+            .note-tags {
+                font-size: 11px;
+                color: var(--vscode-descriptionForeground);
+                margin-left: 8px;
+            }
+
+            .context-menu {
+                position: fixed;
+                background: var(--vscode-menu-background);
+                border: 1px solid var(--vscode-menu-border);
+                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+                z-index: 1000;
+                min-width: 150px;
+                display: none;
+            }
+
+            .context-menu-item {
+                padding: 6px 12px;
+                cursor: pointer;
+                color: var(--vscode-menu-foreground);
+            }
+
+            .context-menu-item:hover {
+                background: var(--vscode-menu-selectionBackground);
+                color: var(--vscode-menu-selectionForeground);
+            }
+
+            .empty-message {
+                padding: 20px;
+                text-align: center;
+                color: var(--vscode-descriptionForeground);
+            }
+
+            .new-note-input {
+                padding: 6px 12px;
+                background: var(--vscode-input-background);
+                border: 1px solid var(--vscode-focusBorder);
+                margin: 4px 0;
+            }
+
+            .new-note-input input {
+                width: 100%;
+                background: transparent;
+                border: none;
+                outline: none;
+                color: var(--vscode-input-foreground);
+                font-size: 13px;
+            }
+        </style>
+    </head>
+
+    <body>
+        <div class="filter-container">
+            <div class="filter-input-wrapper">
+                <input type="text" id="filterInput" placeholder="请输入笔记名称..." />
+                <button class="clear-btn" id="clearBtn">×</button>
+            </div>
+        </div>
+        <div class="notes-list" id="notesList"></div>
+        <div class="context-menu" id="contextMenu">
+            <div class="context-menu-item" onclick="contextMenuAction('rename')">重命名</div>
+            <div class="context-menu-item" onclick="contextMenuAction('editTags')">编辑标签</div>
+            <div class="context-menu-item" onclick="contextMenuAction('delete')">删除</div>
+        </div>
+
+        <script>
+            const vscode = acquireVsCodeApi();
+            const filterInput = document.getElementById('filterInput');
+            const clearBtn = document.getElementById('clearBtn');
+            const notesList = document.getElementById('notesList');
+            const contextMenu = document.getElementById('contextMenu');
+            let currentContextTitle = null;
+
+            filterInput.addEventListener('input', (e) => {
+                const text = e.target.value;
+                clearBtn.style.display = text ? 'block' : 'none';
+                vscode.postMessage({ command: 'filter', text });
+            });
+
+            clearBtn.addEventListener('click', () => {
+                filterInput.value = '';
+                clearBtn.style.display = 'none';
+                vscode.postMessage({ command: 'filter', text: '' });
+            });
+
+            window.addEventListener('message', event => {
+                const message = event.data;
+                if (message.command === 'update') {
+                    updateNotesList(message.notes);
+                    filterInput.value = message.filterText || '';
+                    clearBtn.style.display = message.filterText ? 'block' : 'none';
+                } else if (message.command === 'showNewNoteInput') {
+                    createNewNoteInput();
+                } else if (message.command === 'triggerEditTags') {
+                    editTags(message.title);
+                }
+            });
+
+            function updateNotesList(notes) {
+                if (notes.length === 0) {
+                    notesList.innerHTML = '<div class="empty-message">暂无笔记</div>';
+                    return;
+                }
+
+                notesList.innerHTML = notes.map(note => {
+                    const tagsHtml = note.tags.length ?
+                        `<span class="note-tags">${note.tags.join(', ')}</span>` : '';
+                    return `
+                    <div class="note-item" data-title="${note.title}">
+                        <span class="note-title">${note.title}</span>
+                        ${tagsHtml}
+                    </div>
+                `;
+                }).join('');
+
+                // 添加点击和右键事件
+                document.querySelectorAll('.note-item').forEach(item => {
+                    item.addEventListener('click', () => {
+                        vscode.postMessage({
+                            command: 'openNote',
+                            title: item.dataset.title
+                        });
+                    });
+
+                    item.addEventListener('contextmenu', (e) => {
+                        e.preventDefault();
+                        showContextMenu(e.clientX, e.clientY, item.dataset.title);
+                    });
+                });
+            }
+
+            function deleteNote(title) {
+                vscode.postMessage({ command: 'deleteNote', title });
+            }
+
+            function renameNote(title) {
+                const noteItem = document.querySelector(`[data-title="${title}"]`);
+                if (!noteItem) return;
+
+                const titleSpan = noteItem.querySelector('.note-title');
+                const originalText = titleSpan.textContent;
+
+                // 创建输入框
+                const input = document.createElement('input');
+                input.type = 'text';
+                input.value = originalText;
+                input.className = 'note-title';
+                input.style.background = 'var(--vscode-input-background)';
+                input.style.color = 'var(--vscode-input-foreground)';
+                input.style.border = '1px solid var(--vscode-focusBorder)';
+                input.style.padding = '2px 4px';
+
+                titleSpan.replaceWith(input);
+                input.focus();
+                input.select();
+
+                // 阻止点击事件冒泡，防止触发hideContextMenu
+                input.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                });
+
+                const finishEdit = () => {
+                    const newTitle = input.value.trim();
+                    const newSpan = document.createElement('span');
+                    newSpan.className = 'note-title';
+                    newSpan.textContent = newTitle || originalText;
+                    input.replaceWith(newSpan);
+
+                    if (newTitle && newTitle !== originalText) {
+                        vscode.postMessage({
+                            command: 'renameNote',
+                            oldTitle: originalText,
+                            newTitle: newTitle
+                        });
+                    }
+                };
+
+                input.addEventListener('blur', finishEdit);
+                input.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') {
+                        input.blur();
+                    } else if (e.key === 'Escape') {
+                        input.value = originalText;
+                        input.blur();
+                    }
+                });
+            }
+
+            function showContextMenu(x, y, title) {
+                currentContextTitle = title;
+                contextMenu.style.left = x + 'px';
+                contextMenu.style.top = y + 'px';
+                contextMenu.style.display = 'block';
+            }
+
+            function hideContextMenu() {
+                contextMenu.style.display = 'none';
+                currentContextTitle = null;
+            }
+
+            function contextMenuAction(action) {
+                if (!currentContextTitle) return;
+
+                switch (action) {
+                    case 'rename':
+                        renameNote(currentContextTitle);
+                        break;
+                    case 'editTags':
+                        editTags(currentContextTitle);
+                        break;
+                    case 'delete':
+                        deleteNote(currentContextTitle);
+                        break;
+                }
+                hideContextMenu();
+            }
+
+            // 点击其他地方隐藏菜单
+            document.addEventListener('click', hideContextMenu);
+
+            function editTags(title) {
+                const noteItem = document.querySelector(`[data-title="${title}"]`);
+                if (!noteItem) return;
+
+                const tagsSpan = noteItem.querySelector('.note-tags');
+                const originalText = tagsSpan ? tagsSpan.textContent.replace(/[\[\]]/g, '') : '';
+
+                // 创建输入框
+                const input = document.createElement('input');
+                input.type = 'text';
+                input.value = originalText;
+                input.className = 'note-tags';
+                input.style.background = 'var(--vscode-input-background)';
+                input.style.border = '1px solid var(--vscode-focusBorder)';
+                input.style.padding = '2px 4px';
+                input.style.fontSize = '11px';
+                input.placeholder = '输入标签，用逗号分隔';
+
+                if (tagsSpan) {
+                    tagsSpan.replaceWith(input);
+                } else {
+                    const titleSpan = noteItem.querySelector('.note-title');
+                    titleSpan.after(input);
+                }
+
+                input.focus();
+                input.select();
+
+                // 阻止点击事件冒泡，防止触发hideContextMenu
+                input.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                });
+
+                const finishEdit = () => {
+                    const newTags = input.value.trim();
+                    const newSpan = document.createElement('span');
+                    newSpan.className = 'note-tags';
+                    newSpan.textContent = newTags ? `[${newTags}]` : '';
+                    input.replaceWith(newSpan);
+
+                    vscode.postMessage({
+                        command: 'editTags',
+                        title: title,
+                        tags: newTags
+                    });
+                };
+
+                input.addEventListener('blur', finishEdit);
+                input.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') {
+                        input.blur();
+                    } else if (e.key === 'Escape') {
+                        input.value = originalText;
+                        input.blur();
+                    }
+                });
+            }
+
+            // 双击空白处创建新笔记
+            notesList.addEventListener('dblclick', (e) => {
+                if (e.target === notesList || e.target.classList.contains('empty-message')) {
+                    createNewNoteInput();
+                }
+            });
+
+            function createNewNoteInput() {
+                // 检查是否已存在输入框
+                if (document.querySelector('.new-note-input')) return;
+
+                const inputDiv = document.createElement('div');
+                inputDiv.className = 'new-note-input';
+                inputDiv.innerHTML = '<input type="text" placeholder="输入笔记名称..." />';
+                notesList.appendChild(inputDiv);
+
+                const input = inputDiv.querySelector('input');
+                input.focus();
+
+                input.addEventListener('blur', () => {
+                    const title = input.value.trim();
+                    inputDiv.remove();
+                    if (title) {
+                        vscode.postMessage({ command: 'addNote', title });
+                    }
+                });
+
+                input.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') {
+                        input.blur();
+                    } else if (e.key === 'Escape') {
+                        input.value = '';
+                        input.blur();
+                    }
+                });
+            }
+        </script>
+    </body>
+
+</html>

@@ -4,7 +4,7 @@
   "publisher": "baishi",
   "displayName": "Enotes",
   "description": "You can view your notes in any project.",
-  "version": "0.4.1",
+  "version": "0.5.0",
   "engines": {
     "vscode": "^1.97.0"
   },
@@ -26,6 +26,7 @@
     "views": {
       "enotes-explorer": [
         {
+          "type": "webview",
           "id": "enotesView",
           "name": "Notes List"
         }
@@ -36,11 +37,6 @@
         "command": "enotes.addNote",
         "title": "Add Note",
         "icon": "$(add)"
-      },
-      {
-        "command": "enotes.searchNotes",
-        "title": "搜索笔记",
-        "icon": "$(search)"
       },
       {
         "command": "enotes.deleteNote",
@@ -76,33 +72,12 @@
           "group": "navigation@1"
         },
         {
-          "command": "enotes.searchNotes",
-          "when": "view == enotesView",
-          "group": "navigation@2"
-        },
-        {
           "command": "enotes.refreshNotes",
           "when": "view == enotesView",
-          "group": "navigation@3"
+          "group": "navigation@2"
         }
       ],
-      "view/item/context": [
-        {
-          "command": "enotes.renameNote",
-          "when": "view == enotesView && viewItem != empty",
-          "group": "inline@1"
-        },
-        {
-          "command": "enotes.editTags",
-          "when": "view == enotesView && viewItem != empty",
-          "group": "inline@2"
-        },
-        {
-          "command": "enotes.deleteNote",
-          "when": "view == enotesView && viewItem != empty",
-          "group": "inline@3"
-        }
-      ],
+      "view/item/context": [],
       "editor/title": [
         {
           "command": "enotes.togglePreview",
@@ -142,7 +117,7 @@
     "@types/node": "18.x",
     "@types/vscode": "^1.97.0",
     "@vscode/test-cli": "^0.0.9",
-    "@vscode/test-electron": "^2.4.0",
+    "@vscode/test-electron": "^2.5.2",
     "eslint": "^8.57.0",
     "typescript": "^5.4.5"
   },

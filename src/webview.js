@@ -215,24 +215,9 @@ class WebviewPanelManager {
                         }
                         break;
                     case 'editTags':
-                        // 触发修改标签命令
+                        // 触发侧边栏的内联标签编辑
                         if (message.noteTitle) {
-                            // 在笔记列表中查找对应的笔记项
-                            vscode.commands.executeCommand('enotes.getNoteByTitle', message.noteTitle)
-                                .then(note => {
-                                    if (note) {
-                                        vscode.commands.executeCommand('enotes.editTags', note);
-                                    } else {
-                                        // 如果找不到笔记，创建一个临时的笔记对象
-                                        vscode.commands.executeCommand('enotes.editTags', {
-                                            title: message.noteTitle,
-                                            tags: []
-                                        });
-                                    }
-                                })
-                                .catch(error => {
-                                    vscode.window.showErrorMessage(`获取笔记失败: ${error.message}`);
-                                });
+                            vscode.commands.executeCommand('enotes.editTagsInline', message.noteTitle);
                         }
                         break;
                 }

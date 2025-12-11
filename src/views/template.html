@@ -189,72 +189,25 @@
                 overflow: auto;
             }
 
-            /* 添加切换按钮样式 */
-            #toggle-button {
+            .context-menu {
                 position: fixed;
-                top: 10px;
-                right: 10px;
-                padding: 6px 10px;
-                background-color: var(--vscode-button-background);
-                color: var(--vscode-button-foreground);
-                border: none;
-                border-radius: 3px;
-                cursor: pointer;
-                display: flex;
-                align-items: center;
-                gap: 5px;
+                background: var(--vscode-menu-background);
+                border: 1px solid var(--vscode-menu-border);
+                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
                 z-index: 1000;
+                min-width: 150px;
+                display: none;
             }
 
-            #toggle-button:hover {
-                background-color: var(--vscode-button-hoverBackground);
-            }
-
-            #toggle-button:active {
-                background-color: var(--vscode-button-pressedBackground);
-            }
-
-            /* 添加图标样式 */
-            .icon {
-                width: 16px;
-                height: 16px;
-                display: inline-block;
-                margin-right: 4px;
-            }
-
-            .preview-icon::before {
-                content: "👁";
-            }
-
-            .edit-icon::before {
-                content: "✏️";
-            }
-
-            /* 添加标签编辑按钮样式 */
-            .edit-tags-button {
-                position: absolute;
-                right: 10px;
-                top: 50%;
-                transform: translateY(-50%);
-                background-color: transparent;
-                border: none;
-                color: var(--vscode-foreground);
+            .context-menu-item {
+                padding: 6px 12px;
                 cursor: pointer;
-                display: flex;
-                align-items: center;
-                padding: 4px 8px;
-                border-radius: 3px;
-                font-size: 12px;
+                color: var(--vscode-menu-foreground);
             }
 
-            .edit-tags-button:hover {
-                background-color: var(--vscode-button-hoverBackground);
-            }
-
-            .edit-tags-button::before {
-                content: "✏️";
-                margin-right: 4px;
-                font-size: 14px;
+            .context-menu-item:hover {
+                background: var(--vscode-menu-selectionBackground);
+                color: var(--vscode-menu-selectionForeground);
             }
         </style>
     </head>
@@ -263,6 +216,9 @@
         <div id="tags-container"></div>
         <div id="editor-container"></div>
         <div id="preview-container" class="markdown-body"></div>
+        <div class="context-menu" id="contextMenu">
+            <div class="context-menu-item" id="togglePreviewMenuItem">切换到预览模式</div>
+        </div>
 
         <script>
             const vscode = acquireVsCodeApi();
@@ -271,6 +227,8 @@
             let lastContent = '';
             let saveTimeout = null;
             let isPreviewMode = false;
+            const contextMenu = document.getElementById('contextMenu');
+            const togglePreviewMenuItem = document.getElementById('togglePreviewMenuItem');
 
             // 初始化编辑器
             function initEditor() {
@@ -311,6 +269,35 @@
                 });
             }
 
+            // 显示右键菜单
+            function showContextMenu(x, y) {
+                contextMenu.style.left = x + 'px';
+                contextMenu.style.top = y + 'px';
+                contextMenu.style.display = 'block';
+                // 更新菜单项文本
+                togglePreviewMenuItem.textContent = isPreviewMode ? '编辑模式' : '预览模式';
+            }
+
+            // 隐藏右键菜单
+            function hideContextMenu() {
+                contextMenu.style.display = 'none';
+            }
+
+            // 监听右键菜单
+            document.addEventListener('contextmenu', (e) => {
+                e.preventDefault();
+                showContextMenu(e.clientX, e.clientY);
+            });
+
+            // 点击其他地方隐藏菜单
+            document.addEventListener('click', hideContextMenu);
+
+            // 菜单项点击事件
+            togglePreviewMenuItem.addEventListener('click', () => {
+                togglePreview();
+                hideContextMenu();
+            });
+
             // 切换预览/编辑模式
             function togglePreview() {
                 isPreviewMode = !isPreviewMode;
@@ -346,18 +333,6 @@
             function updateTags(tags) {
                 const container = document.getElementById('tags-container');
                 container.innerHTML = '';
-
-                // 添加编辑标签按钮
-                const editButton = document.createElement('button');
-                editButton.className = 'edit-tags-button';
-                editButton.textContent = '编辑标签';
-                editButton.addEventListener('click', () => {
-                    vscode.postMessage({
-                        type: 'editTags',
-                        noteTitle: noteTitle
-                    });
-                });
-                container.appendChild(editButton);
 
                 if (!tags || tags.length === 0) {
                     const noTagsHint = document.createElement('div');
