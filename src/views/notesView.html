@@ -159,6 +159,10 @@
             <div class="context-menu-item" onclick="contextMenuAction('editTags')">编辑标签</div>
             <div class="context-menu-item" onclick="contextMenuAction('delete')">删除</div>
         </div>
+        <div class="context-menu" id="blankContextMenu">
+            <div class="context-menu-item" onclick="blankContextMenuAction('addNote')">添加笔记</div>
+            <div class="context-menu-item" onclick="blankContextMenuAction('refresh')">刷新列表</div>
+        </div>
 
         <script>
             const vscode = acquireVsCodeApi();
@@ -166,6 +170,7 @@
             const clearBtn = document.getElementById('clearBtn');
             const notesList = document.getElementById('notesList');
             const contextMenu = document.getElementById('contextMenu');
+            const blankContextMenu = document.getElementById('blankContextMenu');
             let currentContextTitle = null;
 
             filterInput.addEventListener('input', (e) => {
@@ -225,6 +230,14 @@
                     });
                 });
             }
+
+            // 空白处右键菜单
+            notesList.addEventListener('contextmenu', (e) => {
+                if (e.target === notesList || e.target.classList.contains('empty-message')) {
+                    e.preventDefault();
+                    showBlankContextMenu(e.clientX, e.clientY);
+                }
+            });
 
             function deleteNote(title) {
                 vscode.postMessage({ command: 'deleteNote', title });
@@ -292,7 +305,26 @@
 
             function hideContextMenu() {
                 contextMenu.style.display = 'none';
+                blankContextMenu.style.display = 'none';
                 currentContextTitle = null;
+            }
+
+            function showBlankContextMenu(x, y) {
+                blankContextMenu.style.left = x + 'px';
+                blankContextMenu.style.top = y + 'px';
+                blankContextMenu.style.display = 'block';
+            }
+
+            function blankContextMenuAction(action) {
+                switch (action) {
+                    case 'addNote':
+                        createNewNoteInput();
+                        break;
+                    case 'refresh':
+                        vscode.postMessage({ command: 'filter', text: '' });
+                        break;
+                }
+                hideContextMenu();
             }
 
             function contextMenuAction(action) {
@@ -314,6 +346,7 @@
 
             // 点击其他地方隐藏菜单
             document.addEventListener('click', hideContextMenu);
+            window.addEventListener('blur', hideContextMenu);
 
             function editTags(title) {
                 const noteItem = document.querySelector(`[data-title="${title}"]`);

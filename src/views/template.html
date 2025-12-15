@@ -291,6 +291,7 @@
 
             // 点击其他地方隐藏菜单
             document.addEventListener('click', hideContextMenu);
+            window.addEventListener('blur', hideContextMenu);
 
             // 菜单项点击事件
             togglePreviewMenuItem.addEventListener('click', () => {
