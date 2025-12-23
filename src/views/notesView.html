@@ -297,6 +297,7 @@
             }
 
             function showContextMenu(x, y, title) {
+                blankContextMenu.style.display = 'none';
                 currentContextTitle = title;
                 contextMenu.style.left = x + 'px';
                 contextMenu.style.top = y + 'px';
@@ -310,6 +311,7 @@
             }
 
             function showBlankContextMenu(x, y) {
+                contextMenu.style.display = 'none';
                 blankContextMenu.style.left = x + 'px';
                 blankContextMenu.style.top = y + 'px';
                 blankContextMenu.style.display = 'block';
