@@ -193,6 +193,7 @@
                 position: fixed;
                 background: var(--vscode-menu-background);
                 border: 1px solid var(--vscode-menu-border);
+                border-radius: 6px;
                 box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
                 z-index: 1000;
                 min-width: 150px;
@@ -271,11 +272,26 @@
 
             // 显示右键菜单
             function showContextMenu(x, y) {
-                contextMenu.style.left = x + 'px';
-                contextMenu.style.top = y + 'px';
                 contextMenu.style.display = 'block';
-                // 更新菜单项文本
                 togglePreviewMenuItem.textContent = isPreviewMode ? '编辑模式' : '预览模式';
+
+                const menuWidth = contextMenu.offsetWidth;
+                const menuHeight = contextMenu.offsetHeight;
+                const viewportWidth = window.innerWidth;
+                const viewportHeight = window.innerHeight;
+
+                let left = x;
+                let top = y;
+
+                if (x + menuWidth > viewportWidth) {
+                    left = viewportWidth - menuWidth - 5;
+                }
+                if (y + menuHeight > viewportHeight) {
+                    top = viewportHeight - menuHeight - 5;
+                }
+
+                contextMenu.style.left = left + 'px';
+                contextMenu.style.top = top + 'px';
             }
 
             // 隐藏右键菜单

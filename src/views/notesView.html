@@ -88,6 +88,16 @@
                 background: var(--vscode-list-activeSelectionBackground);
             }
 
+            .note-item.context-active {
+                border: 1px solid var(--vscode-focusBorder);
+                border-radius: 2px;
+            }
+
+            .note-item.pinned {
+                background: var(--vscode-list-focusBackground);
+                opacity: 0.9;
+            }
+
             .note-title {
                 flex: 1;
                 overflow: hidden;
@@ -105,6 +115,7 @@
                 position: fixed;
                 background: var(--vscode-menu-background);
                 border: 1px solid var(--vscode-menu-border);
+                border-radius: 6px;
                 box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
                 z-index: 1000;
                 min-width: 150px;
@@ -143,6 +154,12 @@
                 color: var(--vscode-input-foreground);
                 font-size: 13px;
             }
+
+            .pin-divider {
+                height: 1px;
+                border-top: 1px dashed var(--vscode-panel-border);
+                margin: 4px 0;
+            }
         </style>
     </head>
 
@@ -155,6 +172,7 @@
         </div>
         <div class="notes-list" id="notesList"></div>
         <div class="context-menu" id="contextMenu">
+            <div class="context-menu-item" id="pinMenuItem" onclick="contextMenuAction('togglePin')">置顶</div>
             <div class="context-menu-item" onclick="contextMenuAction('rename')">重命名</div>
             <div class="context-menu-item" onclick="contextMenuAction('editTags')">编辑标签</div>
             <div class="context-menu-item" onclick="contextMenuAction('delete')">删除</div>
@@ -204,16 +222,44 @@
                     return;
                 }
 
-                notesList.innerHTML = notes.map(note => {
+                // 分离置顶和未置顶的笔记
+                const pinnedNotes = notes.filter(note => note.pinned);
+                const unpinnedNotes = notes.filter(note => !note.pinned);
+
+                let html = '';
+
+                // 渲染置顶笔记
+                if (pinnedNotes.length > 0) {
+                    html += pinnedNotes.map(note => {
+                        const tagsHtml = note.tags.length ?
+                            `<span class="note-tags">${note.tags.join(', ')}</span>` : '';
+                        return `
+                        <div class="note-item pinned" data-title="${note.title}" data-pinned="true">
+                            <span class="note-title">◈  ${note.title}</span>
+                            ${tagsHtml}
+                        </div>
+                    `;
+                    }).join('');
+
+                    // 如果有未置顶的笔记，添加分隔线
+                    if (unpinnedNotes.length > 0) {
+                        html += '<div class="pin-divider"></div>';
+                    }
+                }
+
+                // 渲染未置顶笔记
+                html += unpinnedNotes.map(note => {
                     const tagsHtml = note.tags.length ?
                         `<span class="note-tags">${note.tags.join(', ')}</span>` : '';
                     return `
-                    <div class="note-item" data-title="${note.title}">
+                    <div class="note-item" data-title="${note.title}" data-pinned="false">
                         <span class="note-title">${note.title}</span>
                         ${tagsHtml}
                     </div>
                 `;
                 }).join('');
+
+                notesList.innerHTML = html;
 
                 // 添加点击和右键事件
                 document.querySelectorAll('.note-item').forEach(item => {
@@ -299,22 +345,84 @@
             function showContextMenu(x, y, title) {
                 blankContextMenu.style.display = 'none';
                 currentContextTitle = title;
-                contextMenu.style.left = x + 'px';
-                contextMenu.style.top = y + 'px';
+
+                // 移除之前的高亮边框
+                const prevActive = document.querySelector('.context-active');
+                if (prevActive) {
+                    prevActive.classList.remove('context-active');
+                }
+
+                // 添加高亮边框
+                const noteItem = document.querySelector(`[data-title="${title}"]`);
+                if (noteItem) {
+                    noteItem.classList.add('context-active');
+                    // 更新置顶菜单文本
+                    const isPinned = noteItem.dataset.pinned === 'true';
+                    document.getElementById('pinMenuItem').textContent = isPinned ? '取消置顶' : '置顶';
+                }
+
                 contextMenu.style.display = 'block';
+
+                const menuWidth = contextMenu.offsetWidth;
+                const menuHeight = contextMenu.offsetHeight;
+                const viewportWidth = window.innerWidth;
+                const viewportHeight = window.innerHeight;
+
+                let left = x;
+                let top = y;
+
+                if (x + menuWidth > viewportWidth) {
+                    left = viewportWidth - menuWidth - 5;
+                }
+                if (y + menuHeight > viewportHeight) {
+                    top = viewportHeight - menuHeight - 5;
+                }
+
+                contextMenu.style.left = left + 'px';
+                contextMenu.style.top = top + 'px';
             }
 
             function hideContextMenu() {
                 contextMenu.style.display = 'none';
                 blankContextMenu.style.display = 'none';
+
+                // 移除高亮边框
+                const activeItem = document.querySelector('.context-active');
+                if (activeItem) {
+                    activeItem.classList.remove('context-active');
+                }
+
                 currentContextTitle = null;
             }
 
             function showBlankContextMenu(x, y) {
                 contextMenu.style.display = 'none';
-                blankContextMenu.style.left = x + 'px';
-                blankContextMenu.style.top = y + 'px';
+
+                // 移除高亮边框
+                const prevActive = document.querySelector('.context-active');
+                if (prevActive) {
+                    prevActive.classList.remove('context-active');
+                }
+
                 blankContextMenu.style.display = 'block';
+
+                const menuWidth = blankContextMenu.offsetWidth;
+                const menuHeight = blankContextMenu.offsetHeight;
+                const viewportWidth = window.innerWidth;
+                const viewportHeight = window.innerHeight;
+
+                let left = x;
+                let top = y;
+
+                if (x + menuWidth > viewportWidth) {
+                    left = viewportWidth - menuWidth - 5;
+                }
+                if (y + menuHeight > viewportHeight) {
+                    top = viewportHeight - menuHeight - 5;
+                }
+
+                blankContextMenu.style.left = left + 'px';
+                blankContextMenu.style.top = top + 'px';
             }
 
             function blankContextMenuAction(action) {
@@ -323,7 +431,7 @@
                         createNewNoteInput();
                         break;
                     case 'refresh':
-                        vscode.postMessage({ command: 'filter', text: '' });
+                        vscode.postMessage({ command: 'refresh' });
                         break;
                 }
                 hideContextMenu();
@@ -333,6 +441,15 @@
                 if (!currentContextTitle) return;
 
                 switch (action) {
+                    case 'togglePin':
+                        const noteItem = document.querySelector(`[data-title="${currentContextTitle}"]`);
+                        const isPinned = noteItem && noteItem.dataset.pinned === 'true';
+                        vscode.postMessage({
+                            command: 'togglePin',
+                            title: currentContextTitle,
+                            pinned: !isPinned
+                        });
+                        break;
                     case 'rename':
                         renameNote(currentContextTitle);
                         break;

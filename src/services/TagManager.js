@@ -7,6 +7,7 @@ const { getNotesPath } = require('../utils/config');
 class TagManager {
     constructor() {
         this.tags = new Map();
+        this.metadata = new Map(); // 存储笔记元数据(如置顶状态)
     }
 
     /**
@@ -21,17 +22,26 @@ class TagManager {
             let tagsData = JSON.parse(new TextDecoder().decode(fileContent));
 
             if (tagsData && typeof tagsData === 'object') {
-                this.tags = new Map(Object.entries(tagsData));
+                // 兼容旧格式和新格式
+                if (tagsData.tags) {
+                    this.tags = new Map(Object.entries(tagsData.tags));
+                    this.metadata = new Map(Object.entries(tagsData.metadata || {}));
+                } else {
+                    this.tags = new Map(Object.entries(tagsData));
+                    this.metadata = new Map();
+                }
             } else {
                 this.tags = new Map();
+                this.metadata = new Map();
                 await this.saveTags();
             }
         }
         catch (error) {
             // 如果文件不存在，创建一个空的标签文件
             this.tags = new Map();
+            this.metadata = new Map();
             const encoder = new TextEncoder();
-            await vscode.workspace.fs.writeFile(tagsFileUri, encoder.encode('{}'));
+            await vscode.workspace.fs.writeFile(tagsFileUri, encoder.encode(JSON.stringify({ tags: {}, metadata: {} }, null, 2)));
         }
     }
 
@@ -46,7 +56,10 @@ class TagManager {
         const encoder = new TextEncoder();
         await vscode.workspace.fs.writeFile(
             tagsFile,
-            encoder.encode(JSON.stringify(Object.fromEntries(this.tags), null, 2))
+            encoder.encode(JSON.stringify({
+                tags: Object.fromEntries(this.tags),
+                metadata: Object.fromEntries(this.metadata)
+            }, null, 2))
         );
     }
 
@@ -99,6 +112,29 @@ class TagManager {
      */
     getTags(title) {
         return this.tags.get(title) || [];
+    }
+
+    /**
+     * 获取笔记置顶状态
+     * @param {string} title 标题
+     * @returns {boolean} 是否置顶
+     */
+    getPinned(title) {
+        const meta = this.metadata.get(title);
+        return meta ? meta.pinned === true : false;
+    }
+
+    /**
+     * 设置笔记置顶状态
+     * @param {string} title 标题
+     * @param {boolean} pinned 是否置顶
+     * @returns {Promise<void>}
+     */
+    async setPinned(title, pinned) {
+        let meta = this.metadata.get(title) || {};
+        meta.pinned = pinned;
+        this.metadata.set(title, meta);
+        await this.saveTags();
     }
 }
 

@@ -64,7 +64,8 @@ class NotesProvider {
                 .map(async ([name]) => {
                     const title = name.slice(0, -3);
                     const tags = this.tagManager.getTags(title);
-                    return new NoteItem(title, tags, vscode.TreeItemCollapsibleState.None);
+                    const pinned = this.tagManager.getPinned(title);
+                    return new NoteItem(title, tags, vscode.TreeItemCollapsibleState.None, pinned);
                 }));
 
             this.refresh();
@@ -98,7 +99,7 @@ class NotesProvider {
             const encoder = new TextEncoder();
             await vscode.workspace.fs.writeFile(noteFileUri, encoder.encode(''));
 
-            const note = new NoteItem(title, [], vscode.TreeItemCollapsibleState.None);
+            const note = new NoteItem(title, [], vscode.TreeItemCollapsibleState.None, false);
             this.notes.push(note);
             this.refresh();
 
@@ -221,6 +222,17 @@ class NotesProvider {
             return note;
         }
         throw new Error(`笔记 "${title}" 不存在`);
+    }
+    /**
+     * 切换笔记置顶状态
+     * @param {NoteItem} note 笔记
+     * @param {boolean} pinned 是否置顶
+     * @returns {Promise<void>}
+     */
+    async togglePin(note, pinned) {
+        note.pinned = pinned;
+        await this.tagManager.setPinned(note.title, pinned);
+        this.refresh();
     }
 }
 

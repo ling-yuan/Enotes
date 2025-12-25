@@ -35,6 +35,10 @@ class NotesViewProvider {
                     this.notesProvider.setFilter(message.text);
                     this.refresh();
                     break;
+                case 'refresh':
+                    await this.notesProvider.loadExistingNotes();
+                    this.refresh();
+                    break;
                 case 'openNote':
                     const note = this.notesProvider.notes.find(n => n.title === message.title);
                     if (note) {
@@ -66,6 +70,13 @@ class NotesViewProvider {
                     await this.notesProvider.addNote(message.title);
                     this.refresh();
                     break;
+                case 'togglePin':
+                    const noteToPin = this.notesProvider.notes.find(n => n.title === message.title);
+                    if (noteToPin) {
+                        await this.notesProvider.togglePin(noteToPin, message.pinned);
+                        this.refresh();
+                    }
+                    break;
             }
         });
 
@@ -85,9 +96,16 @@ class NotesViewProvider {
                 );
             }
 
+            // 排序: 置顶的笔记在前，各部分内部按标题字典序排序
+            filteredNotes.sort((a, b) => {
+                if (a.pinned && !b.pinned) return -1;
+                if (!a.pinned && b.pinned) return 1;
+                return a.title.localeCompare(b.title);
+            });
+
             this._view.webview.postMessage({
                 command: 'update',
-                notes: filteredNotes.map(n => ({ title: n.title, tags: n.tags })),
+                notes: filteredNotes.map(n => ({ title: n.title, tags: n.tags, pinned: n.pinned })),
                 filterText: filterText
             });
         }

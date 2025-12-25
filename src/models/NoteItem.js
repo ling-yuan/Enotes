@@ -4,10 +4,11 @@ const vscode = require('vscode');
  * 笔记列表项
  */
 class NoteItem extends vscode.TreeItem {
-    constructor(title, tags = [], collapsibleState) {
+    constructor(title, tags = [], collapsibleState, pinned = false) {
         super(title, collapsibleState);
         this.tags = tags;
         this.title = title;
+        this.pinned = pinned;
         this.tooltip = title;
         // 在标题后显示标签
         this.label = `${title}  ${this.formatTags()}`;
