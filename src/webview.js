@@ -1,5 +1,6 @@
 const vscode = require('vscode');
 const fs = require('fs');
+const path = require('path');
 const marked = require('marked');
 const katex = require('katex');
 
@@ -156,7 +157,8 @@ class WebviewPanelManager {
                 enableScripts: true,
                 retainContextWhenHidden: true,
                 localResourceRoots: [
-                    vscode.Uri.joinPath(this.context.extensionUri, 'src')
+                    vscode.Uri.joinPath(this.context.extensionUri, 'src'),
+                    vscode.Uri.joinPath(vscode.Uri.file(path.dirname(notePath)))
                 ]
             }
         );
@@ -206,9 +208,19 @@ class WebviewPanelManager {
                         try {
                             // 使用 marked 将 Markdown 转换为 HTML
                             const html = marked.parse(message.content);
+                            // 处理图片路径
+                            const processedHtml = html.replace(/<img.+?src="([^"]*)"/g, (match, src) => {
+                                if (src.startsWith('http://') || src.startsWith('https://'))
+                                    return match;
+                                const decodedSrc = decodeURIComponent(src);
+                                const imagePath = path.isAbsolute(decodedSrc) ? decodedSrc : path.join(path.dirname(notePath), decodedSrc);
+                                const imageUri = vscode.Uri.file(imagePath);
+                                const webviewUri = panel.webview.asWebviewUri(imageUri);
+                                return `<img src="${webviewUri}"`;
+                            });
                             panel.webview.postMessage({
                                 type: 'preview',
-                                html: html
+                                html: processedHtml
                             });
                         } catch (error) {
                             vscode.window.showErrorMessage(`生成预览失败: ${error.message}`);
